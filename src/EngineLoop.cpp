@@ -1,10 +1,10 @@
 #include "EngineLoop.h"
 #include <thread>
 #include <Utils/Timer.h>
+#include <Utils/DebugHandler.h>
 #include "Utils/ServiceLocator.h"
-#include <Networking/InputQueue.h>
-#include <Networking/MessageHandler.h>
-#include <Networking/NetworkClient.h>
+#include <Networking/NetClient.h>
+#include <Networking/NetPacketHandler.h>
 #include <tracy/Tracy.hpp>
 
 // Component Singletons
@@ -25,8 +25,14 @@
 EngineLoop::EngineLoop()
     : _isRunning(false), _inputQueue(256), _outputQueue(16)
 {
-    _network.asioService = std::make_shared<asio::io_service>(2);
-    _network.client = std::make_shared<NetworkClient>(new asio::ip::tcp::socket(*_network.asioService.get()));
+    _network.client = std::make_shared<NetClient>();
+    _network.client->Init(NetSocket::Mode::TCP);
+
+    std::shared_ptr<NetSocket> clientSocket = _network.client->GetSocket();
+    clientSocket->SetBlockingState(false);
+    clientSocket->SetNoDelayState(true);
+    clientSocket->SetSendBufferSize(8192);
+    clientSocket->SetReceiveBufferSize(8192);
 }
 
 EngineLoop::~EngineLoop()
@@ -37,9 +43,6 @@ void EngineLoop::Start()
 {
     if (_isRunning)
         return;
-
-    std::thread threadRunIoService = std::thread(&EngineLoop::RunIoService, this);
-    threadRunIoService.detach();
 
     std::thread threadRun = std::thread(&EngineLoop::Run, this);
     threadRun.detach();
@@ -65,32 +68,25 @@ bool EngineLoop::TryGetMessage(Message& message)
     return _outputQueue.try_dequeue(message);
 }
 
-void EngineLoop::RunIoService()
-{
-    asio::io_service::work ioWork(*_network.asioService.get());
-    _network.asioService->run();
-}
 void EngineLoop::Run()
 {
+    tracy::SetThreadName("EngineThread");
+
     _isRunning = true;
 
     SetupUpdateFramework();
-    _updateFramework.gameRegistry.create();
 
     TimeSingleton& timeSingleton = _updateFramework.gameRegistry.set<TimeSingleton>();
     ConnectionSingleton& connectionSingleton = _updateFramework.gameRegistry.set<ConnectionSingleton>();
     LoadBalanceSingleton& loadBalanceSingleton = _updateFramework.gameRegistry.set<LoadBalanceSingleton>();
     AuthenticationSingleton& authenticationSingleton = _updateFramework.gameRegistry.set<AuthenticationSingleton>();
 
-    connectionSingleton.networkClient = _network.client;
-    connectionSingleton.networkClient->SetReadHandler(std::bind(&ConnectionUpdateSystem::HandleRead, std::placeholders::_1));
-    connectionSingleton.networkClient->SetConnectHandler(std::bind(&ConnectionUpdateSystem::HandleConnect, std::placeholders::_1, std::placeholders::_2));
-    connectionSingleton.networkClient->SetDisconnectHandler(std::bind(&ConnectionUpdateSystem::HandleDisconnect, std::placeholders::_1));
-    connectionSingleton.networkClient->Connect("127.0.0.1", 8000); // This is the IP/Port for the local Novus-Service
+    connectionSingleton.netClient = _network.client;
+    bool didConnect = connectionSingleton.netClient->Connect("127.0.0.1", 8000);
+    ConnectionUpdateSystem::HandleConnect(connectionSingleton.netClient, didConnect);
 
     Timer timer;
-    f32 targetDelta = 1.0f / 60.0f;
-    bool shouldFrameSync = false;
+    f32 targetDelta = 1.0f / 5.0f;
 
     while (true)
     {
@@ -104,11 +100,10 @@ void EngineLoop::Run()
         if (!Update())
             break;
 
-        if (shouldFrameSync)
         {
             ZoneScopedNC("WaitForTickRate", tracy::Color::AntiqueWhite1)
 
-            // Wait for tick rate, this might be an overkill implementation but it has the even tickrate I've seen - MPursche
+                // Wait for tick rate, this might be an overkill implementation but it has the even tickrate I've seen - MPursche
             {
                 ZoneScopedNC("Sleep", tracy::Color::AntiqueWhite1) for (deltaTime = timer.GetDeltaTime(); deltaTime < targetDelta - 0.0025f; deltaTime = timer.GetDeltaTime())
                 {
@@ -181,21 +176,21 @@ void EngineLoop::SetupUpdateFramework()
 }
 void EngineLoop::SetMessageHandler()
 {
-    auto messageHandler = new MessageHandler();
-    ServiceLocator::SetNetworkMessageHandler(messageHandler);
+    NetPacketHandler* netPacketHandler = new NetPacketHandler();
+    ServiceLocator::SetNetPacketHandler(netPacketHandler);
 
-    InternalSocket::AuthHandlers::Setup(messageHandler);
-    InternalSocket::GeneralHandlers::Setup(messageHandler);
+    InternalSocket::AuthHandlers::Setup(netPacketHandler);
+    InternalSocket::GeneralHandlers::Setup(netPacketHandler);
 }
 void EngineLoop::UpdateSystems()
 {
     ZoneScopedNC("UpdateSystems", tracy::Color::Blue2)
     {
-        ZoneScopedNC("Taskflow::Run", tracy::Color::Blue2)
-            _updateFramework.taskflow.run(_updateFramework.framework);
+        ZoneScopedNC("Taskflow::Run", tracy::Color::Blue2);
+        _updateFramework.taskflow.run(_updateFramework.framework);
     }
     {
         ZoneScopedNC("Taskflow::WaitForAll", tracy::Color::Blue2)
-            _updateFramework.taskflow.wait_for_all();
+        _updateFramework.taskflow.wait_for_all();
     }
 }

@@ -29,7 +29,7 @@
 #include <Utils/Message.h>
 #include <Utils/StringUtils.h>
 #include <Utils/ConcurrentQueue.h>
-#include <Networking/NetworkServer.h>
+#include <Networking/NetClient.h>
 
 namespace tf
 {
@@ -45,8 +45,7 @@ struct FrameworkRegistryPair
 
 struct NetworkPair
 {
-    std::shared_ptr<NetworkClient> client;
-    std::shared_ptr<asio::io_service> asioService;
+    std::shared_ptr<NetClient> client;
 };
 
 class EngineLoop
@@ -75,7 +74,6 @@ public:
 
 private:
     void Run();
-    void RunIoService();
     bool Update();
     void UpdateSystems();
 

@@ -27,16 +27,16 @@
 #include <Utils/ConcurrentQueue.h>
 #include <Utils/Message.h>
 
-class MessageHandler;
+class NetPacketHandler;
 class ServiceLocator
 {
 public:
     static entt::registry* GetRegistry() { return _gameRegistry; }
     static void SetRegistry(entt::registry* registry);
-    static MessageHandler* GetNetworkMessageHandler() { return _networkMessageHandler; }
-    static void SetNetworkMessageHandler(MessageHandler* serverMessageHandler);
+    static NetPacketHandler* GetNetPacketHandler() { return _netPacketHandler; }
+    static void SetNetPacketHandler(NetPacketHandler* serverMessageHandler);
 
 private:
     static entt::registry* _gameRegistry;
-    static MessageHandler* _networkMessageHandler;
+    static NetPacketHandler* _netPacketHandler;
 };

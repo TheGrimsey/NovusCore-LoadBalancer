@@ -1,19 +1,19 @@
 #pragma once
 #include <memory>
 
-class MessageHandler;
-class NetworkClient;
-struct NetworkPacket;
+class NetPacketHandler;
+class NetClient;
+struct NetPacket;
 namespace InternalSocket
 {
     class GeneralHandlers
     {
     public:
-        static void Setup(MessageHandler*);
-        static bool HandleConnected(std::shared_ptr<NetworkClient>, std::shared_ptr<NetworkPacket>&);
-        static bool HandleRequestAddress(std::shared_ptr<NetworkClient>, std::shared_ptr<NetworkPacket>&);
-        static bool HandleFullServerInfoUpdate(std::shared_ptr<NetworkClient>, std::shared_ptr<NetworkPacket>&);
-        static bool HandleServerInfoAdd(std::shared_ptr<NetworkClient>, std::shared_ptr<NetworkPacket>&);
-        static bool HandleServerInfoRemove(std::shared_ptr<NetworkClient>, std::shared_ptr<NetworkPacket>&);
+        static void Setup(NetPacketHandler*);
+        static bool HandleConnected(std::shared_ptr<NetClient>, std::shared_ptr<NetPacket>);
+        static bool HandleRequestAddress(std::shared_ptr<NetClient>, std::shared_ptr<NetPacket>);
+        static bool HandleFullServerInfoUpdate(std::shared_ptr<NetClient>, std::shared_ptr<NetPacket>);
+        static bool HandleServerInfoAdd(std::shared_ptr<NetClient>, std::shared_ptr<NetPacket>);
+        static bool HandleServerInfoRemove(std::shared_ptr<NetClient>, std::shared_ptr<NetPacket>);
     };
 }
