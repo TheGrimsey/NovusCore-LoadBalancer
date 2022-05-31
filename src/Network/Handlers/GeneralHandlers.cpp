@@ -102,7 +102,7 @@ namespace InternalSocket
                 return false;
             }
 
-            if (!packet->payload->GetU8(serverInformation.realmId))
+            if (!packet->payload->GetU16(serverInformation.realmId))
                 return false;
 
             if (!packet->payload->GetU32(serverInformation.address))
@@ -159,7 +159,7 @@ namespace InternalSocket
             return false;
         }
 
-        if (!packet->payload->GetU8(serverInformation.realmId))
+        if (!packet->payload->GetU16(serverInformation.realmId))
             return false;
 
         if (!packet->payload->GetU32(serverInformation.address))

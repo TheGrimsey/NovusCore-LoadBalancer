@@ -1,12 +1,8 @@
 #pragma once
 #include <entity/fwd.hpp>
-#include <Utils/ConcurrentQueue.h>
 
 class NetClient;
-namespace moddycamel
-{
-    class ConcurrentQueue;
-}
+
 class ConnectionUpdateSystem
 {
 public:
